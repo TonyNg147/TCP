@@ -1,0 +1,21 @@
+# Based on the LLVM style, but with custom settings.
+BasedOnStyle: LLVM
+
+# Use tabs for indentation.
+UseTab: Always
+
+# Set the number of columns used for an indentation step.
+IndentWidth: 4
+
+# The width of a tab character.
+TabWidth: 4
+
+# Wrap lines at 80 characters.
+ColumnLimit: 80
+
+# The style of brace wrapping for control statements (like if/for/while).
+# This example uses the "Attach" style, like LLVM.
+BreakBeforeBraces: Attach
+
+# Don't indent class access modifiers (e.g., public:, private:).
+AccessModifierOffset: -4

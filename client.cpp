@@ -1,88 +1,89 @@
-#include <stdio.h>
-#include <errno.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <cstdlib>
-#include <string.h>
 #include <arpa/inet.h>
+#include <cstdlib>
+#include <errno.h>
+#include <netinet/in.h>
+#include <stdio.h>
+#include <string.h>
 #include <sys/epoll.h>
+#include <sys/socket.h>
 #include <unistd.h>
 int main() {
-    int client_fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (client_fd == -1) {
-        fprintf(stderr, "Error when instantiating socket client %s\n", strerror(errno));
-        std::exit(EXIT_FAILURE);
-    }
-    sockaddr_in addr;
-    addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = INADDR_ANY;
-    addr.sin_port = htons(9000);
+	int client_fd = socket(AF_INET, SOCK_STREAM, 0);
+	if (client_fd == -1) {
+		fprintf(stderr, "Error when instantiating socket client %s\n",
+				strerror(errno));
+		std::exit(EXIT_FAILURE);
+	}
+	sockaddr_in addr;
+	addr.sin_family = AF_INET;
+	addr.sin_addr.s_addr = INADDR_ANY;
+	addr.sin_port = htons(9000);
 
-    if (connect(client_fd, (sockaddr*)&addr, sizeof(sockaddr)) == -1) {
-        fprintf(stderr, "Error when connecting to server\n");
-        std::exit(EXIT_FAILURE);
-    }
+	if (connect(client_fd, (sockaddr *)&addr, sizeof(sockaddr)) == -1) {
+		fprintf(stderr, "Error when connecting to server\n");
+		std::exit(EXIT_FAILURE);
+	}
 
-    int assigned_id = -1;
-    read(client_fd, (void*)&assigned_id, sizeof(int));
+	int assigned_id = -1;
+	read(client_fd, (void *)&assigned_id, sizeof(int));
 
+	fprintf(stdout, "[Client-%d]: Connect to server successfully\n",
+			assigned_id);
 
-    fprintf(stdout, "[Client-%d]: Connect to server successfully\n", assigned_id);
+	int epoll_instance_fd = epoll_create1(0);
 
-    int epoll_instance_fd = epoll_create1(0);
+	if (epoll_instance_fd = epoll_create1(0); epoll_instance_fd == -1) {
+		perror("epoll_create1");
+		exit(EXIT_FAILURE);
+	}
 
-    if (epoll_instance_fd = epoll_create1(0); epoll_instance_fd == -1) {
-        perror("epoll_create1");
-        exit(EXIT_FAILURE);
-    }
+	epoll_event interested_fd, ready_fds[2];
+	interested_fd.events = EPOLLIN;
+	interested_fd.data.fd = client_fd;
+	if (epoll_ctl(epoll_instance_fd, EPOLL_CTL_ADD, client_fd,
+				  &interested_fd) == -1) {
+		perror("epoll_ctl: listen_sock");
+		exit(EXIT_FAILURE);
+	}
 
+	interested_fd.events = EPOLLIN;
+	interested_fd.data.fd = STDIN_FILENO;
+	if (epoll_ctl(epoll_instance_fd, EPOLL_CTL_ADD, STDIN_FILENO,
+				  &interested_fd) == -1) {
+		perror("EPOLL ADD STDIN FAILED");
+		exit(EXIT_FAILURE);
+	}
 
-    epoll_event interested_fd, ready_fds[2];
-    interested_fd.events = EPOLLIN;
-    interested_fd.data.fd = client_fd;
-    if (epoll_ctl(epoll_instance_fd, EPOLL_CTL_ADD, client_fd, &interested_fd) == -1) {
-        perror("epoll_ctl: listen_sock");
-        exit(EXIT_FAILURE);
-    }
+	while (true) {
+		int number_of_ready = epoll_wait(epoll_instance_fd, ready_fds, 2, -1);
+		if (number_of_ready > 0) {
+			for (int i = 0; i < number_of_ready; ++i) {
+				if (ready_fds[i].data.fd == STDIN_FILENO) {
+					char buf[4096];
+					int n = read(STDIN_FILENO, buf, 4096);
+					buf[n] = '\0';
+					if (buf[n - 1] == '\n')
+						buf[n - 1] = '\0';
+					write(client_fd, buf, n);
 
-    interested_fd.events = EPOLLIN;
-    interested_fd.data.fd = STDIN_FILENO;
-    if (epoll_ctl(epoll_instance_fd, EPOLL_CTL_ADD, STDIN_FILENO, &interested_fd) == -1) {
-        perror("EPOLL ADD STDIN FAILED");
-        exit(EXIT_FAILURE);
-    }
+					printf("\x1b[1A");	 // Move cursor up 1 line
+					printf("\x1b[2K\r"); // Clear the entire line
+					fflush(stdout);
+					fprintf(stdout, "[Client-%d]: %s\n", assigned_id, buf);
+					fflush(stdout);
 
+				} else {
+					char buf[4096];
+					int n = read(ready_fds[i].data.fd, buf, 4096);
+					if (n > 0) {
+						buf[n] = '\0';
+						fprintf(stdout, "%s\n", buf);
+						fflush(stdout);
+					}
+				}
+			}
+		}
+	}
 
-    while (true) {
-        int number_of_ready = epoll_wait(epoll_instance_fd, ready_fds, 2, -1);
-        if (number_of_ready > 0) {
-            for (int i=0; i<number_of_ready;++i) { 
-                if (ready_fds[i].data.fd == STDIN_FILENO) {
-                    char buf[4096];
-                    int n = read(STDIN_FILENO, buf, 4096);
-                    buf[n] = '\0';
-                    if (buf[n - 1] == '\n') buf[n - 1] = '\0';
-                    write(client_fd, buf, n);
-
-                    printf("\x1b[1A");   // Move cursor up 1 line
-                    printf("\x1b[2K\r");   // Clear the entire line
-                    fflush(stdout);
-                    fprintf(stdout, "[Client-%d]: %s\n", assigned_id, buf);
-                    fflush(stdout);
-                    
-                } else {
-                    char buf[4096];
-                    int n = read(ready_fds[i].data.fd, buf, 4096);
-                    if (n > 0) {
-                        buf[n] = '\0';
-                        fprintf(stdout, "%s\n", buf);
-                        fflush(stdout);
-                    }
-                }
-            }
-        }
-    }
-
-    close(client_fd);
-
+	close(client_fd);
 }

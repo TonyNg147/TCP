@@ -1,0 +1,10 @@
+{
+  "recommendations": [
+    // The Microsoft C/C++ extension, which includes clang-format support
+    "ms-vscode.cpptools", 
+    // An optional, dedicated clang-format extension by xaver
+    "xaver.clang-format",
+    // Another common C/C++ productivity tool
+    "ms-vscode.cmake-tools"
+  ]
+}
