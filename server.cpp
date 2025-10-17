@@ -4,7 +4,12 @@
 #include <signal.h>
 #include <stdio.h>
 #include <string.h>
+#ifdef __linux__
 #include <sys/epoll.h>
+#elif __APPLE__
+#include <sys/event.h>
+#include <sys/time.h>
+#endif
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -65,6 +70,7 @@ void handle_new_connection(const void *const tracker) {
 	client_fds[current_id].fd = new_client_fd;
 	client_fds[current_id].handler = &process_client_message;
 
+#ifdef __linux__
 	epoll_event ev;
 
 	ev.events = EPOLLIN;
@@ -82,20 +88,50 @@ void handle_new_connection(const void *const tracker) {
 		"%d.\n",
 		inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port),
 		new_client_fd, current_id);
+#elif __APPLE__
+	struct kevent ev;
+	epoll_instance_fd = kqueue();
+	EV_SET(&ev, new_client_fd, EVFILT_READ, EV_ADD, 0, 0,
+		   (void *)&client_fds[current_id]);
+	if (kevent(epoll_instance_fd, &ev, 1, NULL, 0, NULL) == -1) {
+		perror("Add newly connected clients");
+		exit(EXIT_FAILURE);
+	}
+
+	write(new_client_fd, (void *)&current_id, sizeof(int));
+
+	fprintf(
+		stdout,
+		"New connection from address %s with port %d With FD %d, current ID "
+		"%d.\n",
+		inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port),
+		new_client_fd, current_id);
+#endif
 }
 
 void process_client_message(const void *const tracker) {
+	fprintf(stdout, "New process_client_message");
 	const ClientTracker *const client = (ClientTracker *)tracker;
 	char buf[4096];
 
 	int n = read(client->fd, buf, 4096);
 	if (n == 0) {
 		printf("Client disconnect\n");
+#ifdef __linux__
 		if (epoll_ctl(epoll_instance_fd, EPOLL_CTL_DEL, client->fd, NULL) ==
 			-1) {
 			perror("Remove the disconnected client");
 			exit(EXIT_FAILURE);
 		}
+#elif __APPLE__
+		epoll_instance_fd = kqueue();
+		struct kevent ev;
+		EV_SET(&ev, client->fd, EVFILT_READ, EV_DELETE, 0, 0, NULL);
+		if (kevent(epoll_instance_fd, &ev, 1, NULL, 0, NULL) == -1) {
+			perror("Remove the disconnected client");
+			exit(EXIT_FAILURE);
+		}
+#endif
 		auto it = std::remove_if(
 			client_fds.begin(), client_fds.end(),
 			[needed_fd = client->fd](const ClientTracker &client) {
@@ -147,7 +183,7 @@ int main() {
 				strerror(errno));
 		std::exit(EXIT_FAILURE);
 	}
-
+#ifdef __linux__
 	epoll_instance_fd = epoll_create1(0);
 
 	if (epoll_instance_fd = epoll_create1(0); epoll_instance_fd == -1) {
@@ -178,4 +214,32 @@ int main() {
 			}
 		}
 	}
+#elif __APPLE__
+	int epoll_instance_fd = kqueue();
+	if (epoll_instance_fd == -1) {
+		perror("kqueue MacOS create");
+		exit(EXIT_FAILURE);
+	}
+	struct kevent event;
+	std::vector<struct kevent> ready_events(20);
+
+	FDTracker new_connection{server_fd, &handle_new_connection};
+
+	EV_SET(&event, server_fd, EVFILT_READ, EV_ADD, 0, 0, &new_connection);
+	if (kevent(epoll_instance_fd, &event, 1, NULL, 0, NULL) == -1) {
+		perror("kevent register");
+		exit(EXIT_FAILURE);
+	}
+
+	while (true) {
+		int number_of_ready =
+			kevent(epoll_instance_fd, NULL, 0, ready_events.data(), 20, NULL);
+		if (number_of_ready > 0) {
+			for (int i = 0; i < number_of_ready; ++i) {
+				FDTracker *fd_tracker = (FDTracker *)ready_events[i].udata;
+				fd_tracker->handler(fd_tracker);
+			}
+		}
+	}
+#endif
 }
