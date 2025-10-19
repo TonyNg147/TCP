@@ -19,3 +19,17 @@ BreakBeforeBraces: Attach
 
 # Don't indent class access modifiers (e.g., public:, private:).
 AccessModifierOffset: -4
+
+
+
+SortIncludes: true
+IncludeBlocks: Regroup
+IncludeCategories:
+  - Regex: '^<.*>$'
+    Priority: 1
+    SortPriority: 1
+    # comment: System headers (e.g. <iostream>)
+  - Regex: '^"(.*)"$'
+    Priority: 2
+    SortPriority: 2
+    # comment: Project headers (e.g. "MyClass.h")
