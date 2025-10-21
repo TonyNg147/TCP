@@ -1,3 +1,7 @@
+#include <algorithm>
+#include <cstdlib>
+#include <vector>
+
 #include <arpa/inet.h>
 #include <errno.h>
 #include <netinet/in.h>
@@ -5,12 +9,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/epoll.h>
-#include <sys/socket.h>
 #include <unistd.h>
-
-#include <algorithm>
-#include <cstdlib>
-#include <vector>
 
 /*The handler to hanlde the detected FD with its assoicated data*/
 typedef void (*FDHandler)(const void *const);
@@ -24,7 +23,7 @@ struct ClientTracker : FDTracker {
 	ClientTracker(int fd, int id) : FDTracker{fd}, id{id} {}
 	int id;
 };
-
+#include <sys/socket.h>
 int server_fd;
 struct sigaction sa, old_sa;
 int epoll_instance_fd;
@@ -119,6 +118,8 @@ void process_client_message(const void *const tracker) {
 }
 
 int main() {
+	// Need to handle SIGINT or SIGTERM to gracefully terminate the socket
+	// Otherwise, It won't be closed till the time kernel schedules.
 	sa.sa_handler = handle_sigterm;
 	sigemptyset(&sa.sa_mask);
 	sa.sa_flags = 0;

@@ -24,12 +24,19 @@ AccessModifierOffset: -4
 
 SortIncludes: true
 IncludeBlocks: Regroup
+
 IncludeCategories:
-  - Regex: '^<.*>$'
+  - Regex: '^<([a-zA-Z0-9/_]+)>$'
     Priority: 1
     SortPriority: 1
-    # comment: System headers (e.g. <iostream>)
-  - Regex: '^"(.*)"$'
+    # comment: C++ STL headers
+
+  - Regex: '^<boost/.*>$'
     Priority: 2
     SortPriority: 2
-    # comment: Project headers (e.g. "MyClass.h")
+    # comment: Boost headers
+
+  - Regex: '^"(.*)"$'
+    Priority: 3
+    SortPriority: 3
+    # comment: Local project headers

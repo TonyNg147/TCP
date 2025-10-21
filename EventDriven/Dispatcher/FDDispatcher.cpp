@@ -1,7 +1,9 @@
 #include "FDDispatcher.h"
+
+#include <algorithm>
+
 #include <EventSourceBase.h>
 #include <Streamable.h>
-#include <algorithm>
 
 FDDisPatcher::FDDisPatcher() { m_listeners = {}; }
 

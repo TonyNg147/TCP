@@ -1,7 +1,8 @@
 #pragma once
+#include <unordered_map>
+
 #include <EventSource/EventSourceBase.h>
 #include <SystemType/EventSourceKind.h>
-#include <unordered_map>
 class EventSourceCollection {
 public:
 	static EventSourceCollection &getInstance();

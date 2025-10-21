@@ -1,8 +1,9 @@
 #pragma once
 
-#include "BaseEvents.h"
 #include <optional>
 #include <unordered_map>
+
+#include "BaseEvents.h"
 
 struct FDEvent : IEvent {
 	FDEvent() = default;
